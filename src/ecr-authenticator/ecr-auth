@@ -1,0 +1,28 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+    echo "usage: ecr-auth SECRET"
+    exit 1
+fi
+
+AWS_CREDS=/run/secrets/$1
+
+if [ -f $AWS_CREDS ]; then
+    echo "attempting ECR authentication: $1"
+    source $AWS_CREDS
+    $(aws ecr get-login --no-include-email)
+
+    if [ "$?" -ne 0 ]; then
+        exit $?
+    fi
+
+    for service in `docker service ls --format '{{.Image}} {{.Name}}' | grep ^${AWS_ECR_REPO}/ | cut -d' ' -f 2`; do
+        echo "updating $service"
+        docker service update -d --with-registry-auth $service
+    done
+
+    exit 0
+else
+    echo "AWS ECR credentials do not exist: $1"
+    exit 1
+fi

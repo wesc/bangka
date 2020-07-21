@@ -1,0 +1,16 @@
+version: "3.7"
+services:
+  ecr-authenticator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ecr-auth ecr_auth_creds
+    image: bangka/ecr-authenticator:0.1
+    volumes:
+      - .:/src
+      - /var/run/docker.sock:/var/run/docker.sock
+    secrets:
+      - ecr_auth_creds
+secrets:
+  ecr_auth_creds:
+    file: secrets/aws_credentials
