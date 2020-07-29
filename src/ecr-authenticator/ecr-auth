@@ -1,28 +1,54 @@
 #!/bin/bash
 
-if [ $# -ne 1 ]; then
-    echo "usage: ecr-auth SECRET"
-    exit 1
+
+while getopts 'ha:d:g' OPTION; do
+    case "$OPTION" in
+        h)
+            echo "usage: ecr-auth [-a AWS_CREDS] [-d DOCKER_CONFIG] [-g] [-h]"
+            exit 0
+            ;;
+
+        a)
+            aws_creds="$OPTARG"
+            ;;
+        d)
+            docker_config="$OPTARG"
+            ;;
+        g)
+            set_group=1
+            ;;
+        ?)
+        echo "usage: ecr-auth [-a AWS_CREDS] [-d DOCKER_CONFIG] [-g] [-h]" >&2
+        exit 1
+        ;;
+    esac
+done
+shift "$(($OPTIND -1))"
+
+
+if [ ! -z "$aws_creds" ] && [ -f $aws_creds ]; then
+    echo "sourcing $aws_creds"
+    source $aws_creds
 fi
 
-AWS_CREDS=/run/secrets/$1
-
-if [ -f $AWS_CREDS ]; then
-    echo "attempting ECR authentication: $1"
-    source $AWS_CREDS
-    $(aws ecr get-login --no-include-email)
-
-    if [ "$?" -ne 0 ]; then
-        exit $?
-    fi
-
-    for service in `docker service ls --format '{{.Image}} {{.Name}}' | grep ^${AWS_ECR_REPO}/ | cut -d' ' -f 2`; do
-        echo "updating $service"
-        docker service update -d --with-registry-auth $service
-    done
-
-    exit 0
-else
-    echo "AWS ECR credentials do not exist: $1"
-    exit 1
+if [ ! -z "$docker_config" ]; then
+    export DOCKER_CONFIG="$docker_config"
 fi
+
+echo "attempting ECR authentication"
+$(aws ecr get-login --no-include-email)
+
+if [ "$?" -ne 0 ]; then
+    exit $?
+fi
+
+if [ ! -z "$set_group" ] && [ ! -z "$docker_config" ]; then
+    chmod g+r "${docker_config}/config.json"
+fi
+
+for service in `docker service ls --filter label=bangka.ecr-authenticator --format '{{.Name}}'`; do
+    echo "updating $service"
+    docker service update -d --with-registry-auth $service
+done
+
+exit 0

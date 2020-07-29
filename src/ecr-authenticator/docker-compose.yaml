@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     command: ecr-auth ecr_auth_creds
-    image: bangka/ecr-authenticator:0.1
+    image: bangka/ecr-authenticator:0.2
     volumes:
       - .:/src
       - /var/run/docker.sock:/var/run/docker.sock
