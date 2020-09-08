@@ -1,0 +1,84 @@
+#!/bin/bash
+
+# Very basic logrotate. Deletes files older than HOLD minutes in the
+# specified directories. Future work: calculate directory log sizes
+# and delete oldest files.
+
+
+usage()
+{
+    echo "usage: applog-cleanup [-m hold minutes] [-d delay seconds] [-l limit in k] dir"
+}
+
+# Remove the oldest file if the directory size is greater than the
+# limit, and the number of files is greater than 1. If a file is
+# removed, return 1, otherwise return 0.
+prune()
+{
+    dir=$1
+    limit=$2
+
+    size=$(du -sk $dir | cut -f 1)
+    if [ "$size" -le "$limit" ]; then
+        return 0
+    fi
+
+    num=$(ls $dir | wc -l)
+    if [ "$num" -lt 2 ]; then
+        return 0
+    fi
+
+    f=$(ls -t $dir | tail -n 1)
+    echo "cleaning $dir/$f"
+    rm -f $dir/$f
+    return 1
+}
+
+
+hold=60
+delay=60
+limit=10000000
+
+while getopts "m:d:l:h" opt; do
+    case "$opt" in
+        m)
+            hold="$OPTARG"
+            ;;
+        d)
+            delay="$OPTARG"
+            ;;
+        l)
+            limit="$OPTARG"
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+shift $((OPTIND -1))
+
+if [ $# -ne 1 ]; then
+    usage
+    exit 1
+fi
+
+while [ 1 ]; do
+    for dir in `ls $1`; do
+        inp=$1/$dir
+        find $inp -type f -mmin +$hold | xargs rm -f
+        while [ 1 ]; do
+            prune $inp $limit
+            if [ $? -eq 0 ]; then
+                break
+            fi
+        done
+    done
+
+    sleep $delay
+done

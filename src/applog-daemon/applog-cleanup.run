@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# clean up anything older than a week, 10M max per directory, sleep
+# for 5 min in between
+exec /src/applog-cleanup -m 10080 -d 300 -l 10000 /logs
+

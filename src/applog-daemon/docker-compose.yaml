@@ -1,0 +1,9 @@
+version: '3.7'
+services:
+  applog-daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bangka/applog-daemon
+    volumes:
+      - .:/src
